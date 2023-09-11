@@ -1,0 +1,381 @@
+---
+title: "506ps1"
+format: 
+  html: 
+    embed-resources: true
+---
+
+## 1.
+
+### a.
+
+```{r}
+#a
+wine<-read.table("C:/Program Files/RStudio/wine.data",header = TRUE,sep = ",")
+```
+
+### b.
+
+```{r}
+#b
+class1 <- 0
+class2 <- 0
+class3 <- 0
+i <-0
+for (i in wine$X1) {
+  if (i == 1){
+    class1<- class1+1
+  }
+  else if (i ==2){
+    class2<- class2+1
+  }
+  else if (i==3){
+    class3<- class3+1
+  }
+}
+# class1 <- 58
+# class2 <- 71
+# class3 <- 48
+# They are same as the number in wine.names.
+```
+
+### c.
+
+```{r}
+#c
+#1
+#max
+i <- 0
+j <- 0 
+indice <- 0
+class <- 0
+maxx <- wine$X14.23[1]
+for (i in wine$X14.23) {
+  indice <- indice + 1
+  if (i > maxx){
+    maxx <- i
+    class <- wine$X1[indice]
+  }
+}
+maxx
+class
+
+#2
+#min
+i <- 0
+j <- 0 
+indice <- 0
+class <- 0
+minn <- wine$X14.23[1]
+for (i in wine$X14.23) {
+  indice <- indice + 1
+  if (i < minn){
+    minn <- i
+    class <- wine$X1[indice]
+  }
+}
+minn
+class
+#The wine with the highest alcohol content belongs to class 1.
+#The wine with the lowest alcohol content belongs to class 2.
+
+#3
+i <- 0
+count <- 0
+for (i in wine$X127) {
+  if (i > 114){
+    count <- count +1
+  }
+}
+count
+#25 of these wines have higher levels of magnesium than 114mg/l, average German beer magnesium. 
+
+#4
+j <- 0
+count1 <- 0
+count2 <- 0
+count3 <- 0
+for (j in 1:class1) {
+  if ((wine$X127)[j] > 114){
+    count1 <- count1 + 1
+  }
+}
+for (j in class1:(class1+class2)) {
+  if ((wine$X127)[j] > 114){
+    count2 <- count2 + 1
+  }
+}
+for (j in (class2 + class1):(class1+class2+class3)) {
+  if ((wine$X127)[j] > 114){
+    count3 <- count3 + 1
+  }
+}
+count1
+count2
+count3
+#In class1, 14 wines have higher levels of magnesium than average German beer
+#In class1, 6 wines have higher levels of magnesium than average German beer
+#In class1, 5 wines have higher levels of magnesium than average German beer
+```
+
+### d.
+
+```{r}
+#d
+average <- matrix(c(1:52),ncol = 13, byrow = TRUE)
+
+colnames(average)<-c('Alcohol','Malic acid','Ash', 'Alcalinity of ash','Magnesium','Total phenols',
+                     'Flavanoids','Nonflavanoid phenols','Proanthocyanins','Color intensity','Hue',
+                     'OD280/OD315 of diluted wines', 'Proline')
+
+rownames(average)<-c('overall','class1','class2','class3')
+average <- as.table(average)
+i<-0
+for (i in 1:13) {
+  average[1,i] <- mean(wine[,i+1])
+}
+for (i in 1:13) {
+  average[2,i] <- mean(wine[1:class1,i+1])
+}
+for (i in 1:13) {
+  average[3,i] <- mean(wine[class1:(class1+class2),i+1])
+}
+for (i in 1:13) {
+  average[4,i] <- mean(wine[(class1+class2):(class1+class2+class3),i+1])
+}
+average
+
+```
+
+### e.
+
+```{r}
+#e
+t.test(wine[1:class1, 4], wine[class1:(class1+class2), 4])
+t.test(wine[class1:(class1+class2), 4], wine[(class1+class2):(class1+class2+class3), 4])
+t.test(wine[1:class1, 4], wine[(class1+class2):(class1+class2+class3), 4])
+
+#Three tests are made: 1.class1 - class2, 2. class2 - class3, 3. class1 - class3
+
+#p-value for each corresponding test are 2.77e-5, 6.73e-5 and 0.6148
+
+#If we choose alpha to be 0.05, three conclusions can be genearted: 
+
+#1. At 5% significance level, there is sufficient evidence to support the claim that the level of Ash differs across class1 and class2
+
+#2. At 5% significance level, there is sufficient evidence to support the claim that the level of Ash differs across class2 and class3
+
+#3. At 5% significance level, there is not sufficient evidence to support the claim that the level of Ash differs across class1 and class3
+
+```
+
+## 2.
+
+### a.
+
+```{r}
+#a.
+isPerfectPower <- function(x, y){
+  result <- list(0,0)
+  names(result) <- c("isPerfect","root")
+  for (i in 2:ceiling(x**(1/y))) {
+    if (i**y == x){
+      result$isPerfect <- TRUE
+      result$root <- i
+      return(result)
+    }
+  }
+  result$isPerfect <- FALSE
+  result$root <- x**(1/y)
+  return(result)
+}
+
+```
+
+### b.
+
+```{r}
+#b.
+findRootPower <- function(x){
+  for (i in 2: ceiling(log2(x))) {
+    if (isPerfectPower(x, i)[1] == TRUE){
+      s <- paste(x,"=", isPerfectPower(x,i)[2],"^", i)
+      return (s)
+    }
+  }
+  return("input number is not a perfect power")
+}
+findRootPower(27)
+findRootPower(13060694016)
+findRootPower(7776)
+findRootPower(170859375)
+findRootPower(58247422)
+findRootPower(94143178827)
+```
+
+## 3.
+
+### a.
+
+```{r}
+# Function to identify the name of a poker hand
+identifyPokerHand <- function(suits, ranks) {
+  # Check for a flush, which means only one suit
+  is_flush <- length(unique(suits)) == 1
+  
+  # convert "ace","king","queen"and"jack"to numeric values
+  numeric_ranks <- ranks
+  numeric_ranks[ranks == "Ace"] <- 1  # Treat Ace as 1 for straight
+  numeric_ranks[ranks == "King"] <- 13
+  numeric_ranks[ranks == "Queen"] <- 12
+  numeric_ranks[ranks == "Jack"] <- 11
+  #convert into numeric vector
+  numeric_ranks <- as.numeric(numeric_ranks)
+  
+  # Check for non-numeric ranks
+  if (any(is.na(numeric_ranks))) {
+    is_straight <- FALSE
+  } else {
+  # Check if a straight: unique function eliminates duplicate and max-min =4 means straight
+    is_straight <- length(unique(numeric_ranks)) == 5 && (max(numeric_ranks) - min(numeric_ranks)) == 4
+  }
+  
+  # Count the frequency of each rank: table() function will return the frequency 
+  rank_counts <- table(ranks)
+  
+  # Check for a four of a kind, full house, three of a kind, or two pair. any() function checks if at least one condition is true, which is suitable here since table() function will return multiple columns, we just need one frequency satisfies
+  has_four_of_a_kind <- any(rank_counts == 4)
+  has_three_of_a_kind <- any(rank_counts == 3)
+  has_pair <- any(rank_counts == 2)
+  
+  #check if satisfy any hands, following from highest to lowest. In if-else statements, previous statements will be checked earlier
+  if (is_flush && is_straight) {
+    return("Straight Flush")
+  } else if (has_four_of_a_kind) {
+    return("Four of a Kind")
+  } else if (has_three_of_a_kind && has_pair) {
+    return("Full House")
+  } else if (is_flush) {
+    return("Flush")
+  } else if (is_straight) {
+    return("Straight")
+  } else if (has_three_of_a_kind) {
+    return("Three of a Kind")
+  } else if (sum(rank_counts == 2) == 4) {
+    return("Two Pair")
+  } else if (has_pair) {
+    return("One Pair")
+  } else {
+    return("High Card")
+  }
+}
+
+# Function to simulate a round of 5-card stud poker
+simulatePokerRound <- function(num_players) {
+  set.seed(506)
+  # Define the deck of cards
+  # four suits
+  suits <- rep(c("Hearts", "Diamonds", "Clubs", "Spades"), each = 13)
+  # 2-10
+  ranks <- rep(c("Ace",2:10, "Jack", "Queen", "King"),4)
+  # "Ace","King","Queen","Jack", potential error here since there are four sets of "Ace", "king","Queen","Jack" and here only include one set
+
+  
+  # Shuffle the deck, and more intuitively here, take a sample of 1:52 numbers without replacement
+  deck <- sample(1:52)
+  
+  # Deal 5 cards to each player
+  players <- list()
+  for (i in 1:num_players) {
+    # Assign each player 5 numbers
+    hand <- deck[((i - 1) * 5 + 1):(i * 5)]
+    # Using the R list, get the corresponding suit and rank using each player's 5 numbers
+    player_hand <- list(
+      suits = suits[hand],
+      ranks = ranks[hand]
+    )
+    players[[i]] <- player_hand
+  }
+  
+  # Display each player's hand and identify the poker hand
+  for (i in 1:num_players) {
+    # Cat function is similar with print
+    cat("Player", i, "Hand:", "\n")
+    cat("Suits:", players[[i]]$suits, "\n")
+    cat("Ranks:", players[[i]]$ranks, "\n")
+    poker_hand <- identifyPokerHand(players[[i]]$suits, players[[i]]$ranks)
+    cat("Poker Hand:", poker_hand, "\n\n")
+  }
+}
+
+# Example usage
+simulatePokerRound(num_players = 4)
+```
+
+### b.
+
+```{r}
+#The code runs without error
+simulatePokerRound(num_players = 1)
+simulatePokerRound(num_players = 2)
+simulatePokerRound(num_players = 3)
+simulatePokerRound(num_players = 4)
+simulatePokerRound(num_players = 5)
+simulatePokerRound(num_players = 6)
+simulatePokerRound(num_players = 7)
+simulatePokerRound(num_players = 8)
+simulatePokerRound(num_players = 9)
+simulatePokerRound(num_players = 10)
+simulatePokerRound(num_players = 11)
+simulatePokerRound(num_players = 12)
+simulatePokerRound(num_players = 13)
+simulatePokerRound(num_players = 14)
+```
+
+### c.
+
+```{r}
+#comments are written on (a) code
+```
+
+### d.
+
+```{r}
+set.seed(506)
+simulatePokerRound(num_players = 1)
+set.seed(506)
+simulatePokerRound(num_players = 1)
+set.seed(506)
+simulatePokerRound(num_players = 4)
+set.seed(506)
+simulatePokerRound(num_players = 4)
+set.seed(506)
+simulatePokerRound(num_players = 10)
+set.seed(506)
+simulatePokerRound(num_players = 10)
+set.seed(506)
+simulatePokerRound(num_players = 11)
+set.seed(506)
+simulatePokerRound(num_players = 11)
+set.seed(506)
+simulatePokerRound(num_players = 12)
+set.seed(506)
+simulatePokerRound(num_players = 12)
+
+#With less than 11 players, each player can get 5 cards. The only problem I find is that there are NA in the ranks. Besides, input and output are as described above; the hands are valid and names are correct.
+
+#When more players, 11, 12, ..., only first ten players can get 5 cards, the 11th player only gets 2 cards and later players get nothing, which is displayed as NA. This ensures that there is no duplicates.
+
+#Therefore, what I try to do is to eliminate NA in the rank. I think the problem is from the dealing card part, where as I commented there the code only includes one set of "Ace", "King", "Queen", "Jack", so there will be ideally 12 missing cards. Luckily, I find that there are 12 NAs when deal players 52 cards. 
+
+#To fix it, I try to modify the code 
+#suits <- rep(c("Hearts", "Diamonds", "Clubs", "Spades"), each = 13)
+#ranks <- rep(2:10, 4)
+#ranks <- c("Ace", "King", "Queen", "Jack", ranks)
+
+#to
+#suits <- rep(c("Hearts", "Diamonds", "Clubs", "Spades"), each = 13)
+#ranks <- rep(c("Ace",2:10, "Jack", "Queen", "King"),4)
+
+#and after that I find that there are no NA in the output
+```
