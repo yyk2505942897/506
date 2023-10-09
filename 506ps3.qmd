@@ -1,0 +1,395 @@
+---
+title: "506ps3"
+author: "Yukun Yang"
+format: pdf
+editor: visual
+---
+
+https://github.com/yyk2505942897/506.git
+
+# Problem 1.
+
+## (a)
+
+Since the data format is in xpt, not a stata format, so I import the data and save it into .dta format, then I can use the merge command. To print out the sample size, I use describe command, where it will shows the total observations which is the sample size.
+
+```         
+
+import sasxport5 "C:\Users\Yukun\Downloads\DEMO_D.XPT", clear
+save "data1.dta", replace
+import sasxport5 "C:\Users\Yukun\Downloads\VIX_D.XPT", clear
+save "data2.dta", replace
+clear
+use data1.dta
+merge 1:1 seqn using data2.dta, keep(match)
+save "data3.dta", replace
+describe
+
+result
+
+Contains data from data3.dta
+ Observations:         6,980                  
+    Variables:           100                  9 Oct 2023 16:50
+----------------------------------------------------------------------------------------------------------------------------------------
+Variable      Storage   Display    Value
+    name         type    format    label      Variable label
+```
+
+## (b)
+
+First by look through the description of each variable, I find that the variable we are looking for is called viq220. 1 indicates yes, 2 indicates no and 9 indicated don't know. The age variable I choose is ridageyr
+
+```         
+
+gen age_group = floor(ridageyr / 10) * 10
+gen valid = (viq220 != 9 & viq220 != .)
+egen total_count = sum(valid), by(age_group)
+egen glasses_count = sum(viq220 == 1), by(age_group)
+gen proportion = glasses_count / total_count
+sort age_group
+by age_group: gen dup = cond(_N==1,0,_n)
+drop if dup > 1
+list age_group proportion
+
+
+     +---------------------+
+     | age_gr~p   propor~n |
+     |---------------------|
+  1. |       10   .3208812 |
+  2. |       20   .3265742 |
+  3. |       30   .3586667 |
+  4. |       40   .3699871 |
+  5. |       50   .5500821 |
+     |---------------------|
+  6. |       60   .6222222 |
+  7. |       70   .6689038 |
+  8. |       80   .6688103 |
+     +---------------------+
+```
+
+## (c)
+
+gender refers to the variable riagendr, race: ridreth1, poverty: indfmpir
+
+```         
+//(c) 
+clear
+use data1.dta
+merge 1:1 seqn using data2.dta
+gen viq220_binary = viq220 == 1
+logit viq220_binary ridageyr if viq220 != 9 & viq220 != .
+logit viq220_binary ridageyr ridreth1 riagendr if viq220 != 9 & viq220 != .
+logit viq220_binary ridageyr ridreth1 riagendr indfmpir  if viq220 != 9 & viq220 != .
+di "Odds Ratios:"
+di exp(_b[ridageyr]) " for age"
+di exp(_b[ridreth1]) " for race"
+di exp(_b[riagendr]) " for gender"
+di exp(_b[indfmpir]) " for poverty_income_ratio"
+scalar lnlikelihood = e(ll)
+scalar aic = -2 * lnlikelihood + 2 * 2
+di "AIC: " aic
+
+
+ logit viq220_binary ridageyr if viq220 != 9 & viq220 != .
+
+Iteration 0:   log likelihood = -4457.6265  
+Iteration 1:   log likelihood = -4236.2351  
+Iteration 2:   log likelihood = -4235.9433  
+Iteration 3:   log likelihood = -4235.9433  
+
+Logistic regression                                     Number of obs =  6,545
+                                                        LR chi2(1)    = 443.37
+                                                        Prob > chi2   = 0.0000
+Log likelihood = -4235.9433                             Pseudo R2     = 0.0497
+
+-------------------------------------------------------------------------------
+viq220_binary | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+--------------+----------------------------------------------------------------
+     ridageyr |   .0246729   .0012055    20.47   0.000     .0223101    .0270357
+        _cons |   -1.26097   .0534482   -23.59   0.000    -1.365727   -1.156213
+-------------------------------------------------------------------------------
+
+. logit viq220_binary ridageyr ridreth1 riagendr if viq220 != 9 & viq220 != .
+
+Iteration 0:   log likelihood = -4457.6265  
+Iteration 1:   log likelihood = -4176.3662  
+Iteration 2:   log likelihood =  -4175.248  
+Iteration 3:   log likelihood = -4175.2478  
+
+Logistic regression                                     Number of obs =  6,545
+                                                        LR chi2(3)    = 564.76
+                                                        Prob > chi2   = 0.0000
+Log likelihood = -4175.2478                             Pseudo R2     = 0.0633
+
+-------------------------------------------------------------------------------
+viq220_binary | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+--------------+----------------------------------------------------------------
+     ridageyr |   .0250086   .0012239    20.43   0.000     .0226098    .0274074
+     ridreth1 |   .1246483   .0224871     5.54   0.000     .0805744    .1687223
+     riagendr |    .498122    .052653     9.46   0.000      .394924      .60132
+        _cons |  -2.387684   .1192364   -20.02   0.000    -2.621383   -2.153985
+-------------------------------------------------------------------------------
+
+. logit viq220_binary ridageyr ridreth1 riagendr indfmpir  if viq220 != 9 & viq220 != .
+
+Iteration 0:   log likelihood = -4259.5533  
+Iteration 1:   log likelihood = -3966.8788  
+Iteration 2:   log likelihood = -3965.3949  
+Iteration 3:   log likelihood = -3965.3948  
+
+Logistic regression                                     Number of obs =  6,247
+                                                        LR chi2(4)    = 588.32
+                                                        Prob > chi2   = 0.0000
+Log likelihood = -3965.3948                             Pseudo R2     = 0.0691
+
+-------------------------------------------------------------------------------
+viq220_binary | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+--------------+----------------------------------------------------------------
+     ridageyr |   .0237627    .001262    18.83   0.000     .0212892    .0262362
+     ridreth1 |   .0927756   .0235641     3.94   0.000     .0465909    .1389603
+     riagendr |   .5185953   .0541213     9.58   0.000     .4125196     .624671
+     indfmpir |   .1426011   .0170108     8.38   0.000     .1092606    .1759416
+        _cons |  -2.634169   .1284572   -20.51   0.000    -2.885941   -2.382398
+-------------------------------------------------------------------------------
+. di "Odds Ratios:"
+Odds Ratios:
+
+. di exp(_b[ridageyr]) " for age"
+1.0240472 for age
+
+. di exp(_b[ridreth1]) " for race"
+1.0972155 for race
+
+. di exp(_b[riagendr]) " for gender"
+1.6796666 for gender
+
+. di exp(_b[indfmpir]) " for poverty_income_ratio"
+1.1532697 for poverty_income_ratio
+
+. scalar lnlikelihood = e(ll)
+
+. scalar aic = -2 * lnlikelihood + 2 * 2
+
+. di "AIC: " aic
+AIC: 7934.7896
+```
+
+## (d)
+
+Here I use chi-square test, and I rename the table to change the categorical values into text. From the result, p-value is very small, so we can conclude that there is significant difference in the proportion of wearing glasses/contact lenses between male and female.
+
+```         
+
+logit viq220_binary ridageyr ridreth1 riagendr indfmpir if viq220 != 9 & viq220 != .
+
+recode viq220 (1 = 1 "Wears Glasses") (2 = 0 "Doesn't Wear Glasses")
+(9 = 0 "Doesn't Wear Glasses"), generate(glasses_label)
+recode riagendr (1 = 1 "Male") (2 = 0 "Female"), generate(gender_label)
+
+tabulate glasses_label gender_label, chi2
+
+    RECODE of viq220 |
+    (Glasses/contact |  RECODE of riagendr
+     lenses worn for |       (Gender)
+           distance) |    Female       Male |     Total
+---------------------+----------------------+----------
+Doesn't Wear Glasses |     1,768      2,014 |     3,782 
+       Wears Glasses |     1,584      1,181 |     2,765 
+---------------------+----------------------+----------
+               Total |     3,352      3,195 |     6,547 
+
+          Pearson chi2(1) =  71.0144   Pr = 0.000
+```
+
+# Problem 2.
+
+## (a)
+
+```{r}
+library(RSQLite)
+data <- dbConnect(SQLite(), dbname = "C:/Users/Yukun/Downloads/sakila_master.db")
+result <-dbGetQuery(data,"
+SELECT language.name AS language, COUNT(film.language_id) AS num_films
+    FROM film
+  JOIN language ON film.language_id = language.language_id
+  WHERE language.name != 'English'
+  GROUP BY language.name
+  ORDER BY num_films DESC
+  LIMIT 1;
+"
+)
+
+
+```
+
+## (b)
+
+The most common genre is category_id 15 and there are 74 movies
+
+```{r}
+#Use R
+result <- dbGetQuery(data, "SELECT category_id FROM film_category")
+library(dplyr)
+genre <- result %>%
+group_by(category_id) %>%
+summarise(count = n()) %>%
+arrange(desc(count)) %>%
+slice_head(n = 1)
+
+print(genre)
+#Use sql
+# Most common genre and its count
+result2 <- dbGetQuery(data, "
+SELECT category_id, COUNT(*) as count
+    FROM film_category
+  GROUP BY category_id
+  ORDER BY count DESC
+  LIMIT 1
+")
+
+print(result2)
+```
+
+## (c)
+
+Here, since customer doesn't have key country, so I join with other tables through foreign key
+
+United Kingdom has exactly 9 customers
+
+```{r}
+#use R
+result <- dbGetQuery(data, "
+SELECT country.country AS country
+    FROM customer
+  JOIN address ON customer.address_id = address.address_id
+  JOIN city ON address.city_id = city.city_id
+  JOIN country ON city.country_id = country.country_id
+")
+customers_9 <- result %>%
+group_by(country) %>%
+summarise(count = n()) %>%
+filter(count == 9)
+
+print(customers_9)
+
+#use sql
+result_single_query <- dbGetQuery(data, "
+SELECT country.country, COUNT(*) AS num_customers
+    FROM customer
+  JOIN address ON customer.address_id = address.address_id
+  JOIN city ON address.city_id = city.city_id
+  JOIN country ON city.country_id = country.country_id
+  GROUP BY country.country
+  HAVING COUNT(*) = 9
+")
+
+# Display the result
+print(result_single_query)
+
+```
+
+# Problem 3.
+
+## (a)
+
+```{r}
+data <- read.csv("C:/Users/Yukun/Downloads/us-500.csv")
+library(stringr)
+domain <- str_extract(data$email, "@[a-z0-9.-]*$")
+tld <- str_extract(domain, "\\.[a-z]*$")
+
+prop <- mean(tld == ".net", na.rm = TRUE)
+print(paste("The proporton is", prop))
+```
+
+## (b)
+
+```{r}
+# We don't take @. into account of non alphanumeric
+alpha <- grepl("[^a-zA-Z0-9@.]", data$email)
+
+prop <- mean(alpha)
+print(paste("The proporton is", prop))
+```
+
+## (c)
+
+```{r}
+#use substr to get the first three numbers of the phone, which is the area code
+area_codes <- substr(c(data$phone1,data$phone2), 1, 3)
+
+area_code_freq <- table(area_codes)
+
+most_common <- names(sort(area_code_freq, decreasing = TRUE)[1])
+
+print(paste("The most common area code is", most_common))
+```
+
+## (d)
+
+```{r}
+
+apartment_numbers = gsub(".*#(\\d+).*", "\\1", data$address)
+# delete NAs
+apartment_numbers = apartment_numbers[apartment_numbers != data$address] 
+
+apartment_numbers = as.numeric(apartment_numbers)
+
+log_apartment_numbers = log(apartment_numbers)
+
+hist(log_apartment_numbers, main="Histogram of log(Apartment Numbers)", 
+     xlab="log(Apartment Number)")
+
+```
+
+## (e)
+
+Here, the data doesn't match the Benford proportion.
+
+In real data, I think the apartment number will still not follow Benford's law, since the apartment number is assigned by human, with the process of generating the number is not common in nature.
+
+```{r}
+# calculate the proportion of leading digit
+leading_digits <- substr(apartment_numbers, 1, 1)
+leading_digits <- as.numeric(leading_digits)
+freq_table <- table(leading_digits)
+total = sum(freq_table)
+observed_proportions = freq_table / total
+# calculate the benford proportion
+digits = 1:9
+benford_proportions = log10(1 + 1/digits)
+
+barplot(observed_proportions, beside=TRUE, col='red', 
+        ylim=c(0, max(c(observed_proportions, benford_proportions))), 
+        main='Benford\'s Law Comparison', xlab='Leading Digit', ylab='Proportion')
+
+# Overlay Benford's proportions
+points(digits, benford_proportions, type='b', pch=16, col='blue')
+
+```
+
+## (f)
+
+Still, it doesn't follow the Benford's law. However, in real data, I expect the street number to follow the Benford's law, because compared with apartment number, street number is more randomly generated and doesn't follow some sequence, so if the data is large, it may follow the Benford's law.
+
+```{r}
+address <- data$address
+street_numbers = str_extract(address, "^\\d+")
+street_numbers = as.numeric(street_numbers)
+last_digits <- str_sub(street_numbers, -1, -1)
+last_digits <- as.numeric(last_digits)
+
+freq_table <- table(last_digits)
+total = sum(freq_table)
+observed_proportions = freq_table / total
+
+digits = 1:9
+benford_proportions = log10(1 + 1/digits)
+
+barplot(observed_proportions, beside=TRUE, col='red', 
+        ylim=c(0, max(c(observed_proportions, benford_proportions))), 
+        main='Benford\'s Law Comparison', xlab='Last Digit', ylab='Proportion')
+
+# Overlay Benford's proportions
+points(digits, benford_proportions, type='b', pch=16, col='blue')
+```
