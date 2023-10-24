@@ -1,0 +1,403 @@
+---
+title: "506PS4"
+author: "Yukun Yang"
+format: pdf
+editor: visual
+---
+
+https://github.com/yyk2505942897/506.git
+
+## 1.
+
+### a.
+
+```{r}
+library(nycflights13)
+library(tidyverse)
+departure_delays <- flights %>%
+  group_by(origin) %>%
+  summarise(
+    mean_delay = mean(dep_delay, na.rm = TRUE),
+    median_delay = median(dep_delay, na.rm = TRUE)
+  ) %>%
+  left_join(airports, by = c("origin" = "faa")) %>%
+  select(name, mean_delay, median_delay) %>%
+  arrange(desc(mean_delay)) %>%
+  print(n = Inf)  
+
+arrival_delays <- flights %>%
+  group_by(dest) %>%
+  filter(n() >= 10) %>%
+  summarise(
+    mean_delay = mean(arr_delay, na.rm = TRUE),
+    median_delay = median(arr_delay, na.rm = TRUE)
+  ) %>%
+  left_join(airports, by = c("dest" = "faa")) %>%
+  select(name, mean_delay, median_delay) %>%
+  arrange(desc(mean_delay)) %>%
+  print(n = Inf) 
+
+```
+
+### b. 
+
+```{r}
+fastest_aircraft <- flights %>%
+  filter(!is.na(air_time), air_time > 0) %>% # Filter out missing or zero air times
+  mutate(speed_mph = distance / air_time * 60) %>%
+  left_join(planes, by = "tailnum") %>%
+  group_by(model) %>%
+  summarise(
+    avg_speed = mean(speed_mph, na.rm = TRUE),
+    num_flights = n()
+  ) %>%
+  arrange(desc(avg_speed)) %>%
+  slice(1)
+
+fastest_aircraft
+
+```
+
+## 2.
+
+```{r}
+nnmaps <- read.csv("C:/Users/Yukun/Downloads/chicago-nmmaps.csv")
+library(tidyverse)
+
+get_temp <- function(month, year, data, celsius = FALSE, average_fn = mean) {
+  
+  # Validate month
+  month_names <- c(
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+  )
+  
+  if (is.character(month)) {
+    month <- match(tolower(substr(month, 1, 3)), tolower(substr(month_names, 1, 3)))
+    if (is.na(month)) {
+      stop("Invalid month input.")
+    }
+  } else if (!is.numeric(month) || month < 1 || month > 12) {
+    stop("Invalid month input. It should be a number between 1 and 12 or a valid month name.")
+  }
+  
+  # Filter data and calculate average temperature
+  avg_temp <- data %>%
+    filter(month == month, year == year) %>%
+    summarise(avg_temp = average_fn(temp)) %>%
+    pull(avg_temp)
+  
+  # Convert to Celsius if needed
+  if (celsius) {
+    avg_temp <- (avg_temp - 32) * 5/9
+  }
+  
+  return(avg_temp)
+}
+
+get_temp("Apr", 1999, data = nnmaps)
+get_temp("Apr", 1999, data = nnmaps, celsius = TRUE)
+get_temp(10, 1998, data = nnmaps, average_fn = median)
+
+get_temp(2, 2005, data = nnmaps)
+get_temp("November", 1999, data =nnmaps, celsius = TRUE,
+          average_fn = function(x) {
+            x %>% sort -> x
+            x[2:(length(x) - 1)] %>% mean %>% return
+          })
+#get_temp(13, 1998, data = nnmaps)
+#Error in get_temp(13, 1998, data = nnmaps) :
+#Invalid month input. It should be a number between 1 and 12 or a valid month name.
+```
+
+## 3.
+
+```         
+/*p3*/
+*a;
+/* Load the data into SAS */
+libname recslib "/home/u63651213";
+data recs;
+    set recslib.recs2020;  
+run;
+/* Sum weights by state */
+proc sql;
+    create table state_weights as 
+    select STATE_FIPS, 
+           sum(nweight) as total_weight 
+    from recs 
+    group by STATE_FIPS;
+quit;
+
+/* State with highest percentage of records */
+proc sql;
+    create table max_state as
+    select STATE_FIPS,
+           total_weight / (select sum(total_weight) from state_weights) as
+           percentage
+    from state_weights
+    order by percentage desc;
+    where monotonic() = 1; 
+quit;
+
+/* Percentage of records corresponding to Michigan */
+proc sql;
+    create table michigan_percentage as 
+    select total_weight / (select sum(total_weight) from state_weights) as
+    michigan_perc 
+    from state_weights 
+    where STATE_FIPS = "26";
+quit;
+
+*b;
+/* Filter data to those with strictly positive total electricity cost */
+data positive_cost;
+    set recs;
+    if dollarel > 0;
+run;
+/* Plot histogram */
+proc sgplot data=positive_cost;
+    histogram dollarel;
+    title "Histogram of Total Electricity Cost (Strictly Positive)";
+run;
+
+*c;
+/* Create a new variable for the natural logarithm of the total electricity cost */
+data log_cost;
+    set recs;
+    if dollarel > 0 then logcost = log(dollarel);
+    else delete; 
+run;
+
+/* Plot histogram of the log-transformed cost */
+proc sgplot data=log_cost;
+    histogram logcost;
+    title "Histogram of Natural Logarithm of Total Electricity Cost";
+run;
+
+*d;
+proc reg data=log_cost;
+    model logcost = totrooms prkgplc1;
+    weight nweight; /* Apply the weights */
+    title "Linear Regression Model predicting Log of Total Electricity Cost";
+run;
+quit;
+
+*e;
+proc reg data=log_cost noprint outest=regOut; 
+    model logcost = totrooms prkgplc1;
+    weight nweight;
+    output out=pred_dataset p=pred_log_cost; 
+    /* Storing predicted values in pred_log_cost */
+run;
+quit;
+data pred_dataset;
+    set pred_dataset;
+    pred_cost = exp(pred_log_cost); 
+    /* Exponentiating to get back to original scale */
+run;
+proc sgplot data=pred_dataset;
+    scatter x=dollarel y=pred_cost; 
+    /* dollarel is the actual cost, pred_cost is the predicted cost */
+    xaxis label="Actual Total Electricity Cost";
+    yaxis label="Predicted Total Electricity Cost";
+    title "Scatterplot of Actual vs. Predicted Total Electricity Cost";
+run;
+```
+
+## 4. 
+
+### a b c
+
+```         
+
+
+/*p4*/
+
+libname shed "/home/u63651213";
+
+data shed;
+    set shed.public2022;  
+run;
+
+proc sql;
+    create table analysis_data as
+    select 
+    	caseid,
+    	weight_pop,
+        B3, /* family's financial status */
+        ND2, /* natural disaster in 5 years */
+        B7_a, /* Economic conditions */
+        GH1, /* Owning, renting, or neither */
+        ppeducat , /* 4-category education variable */
+        race_5cat  /* 5-category race variable */
+    from 
+        shed
+    where 
+    	weight_pop is not missing and
+    	caseid is not missing and 
+        B3 is not missing and
+        ND2 is not missing and
+        B7_a is not missing and
+        GH1 is not missing and
+        ppeducat is not missing and
+        race_5cat is not missing;
+quit;
+
+/* SAS code to export to CSV */
+proc export data=analysis_data
+    outfile="/home/u63651213/ps4.csv"
+    dbms=csv
+    replace;
+run;
+```
+
+### d e f g
+
+```         
+. do "C:\Users\Yukun\AppData\Local\Temp\STD10018_000000.tmp"
+
+. 
+. import delimited "C:/Users/Yukun/Downloads/ps4-2.csv", clear
+(encoding automatically selected: ISO-8859-2)
+(8 vars, 11,667 obs)
+
+. describe
+
+Contains data
+ Observations:        11,667                  
+    Variables:             8                  
+----------------------------------------------------------------------------------------------------------------------------------------
+Variable      Storage   Display    Value
+    name         type    format    label      Variable label
+----------------------------------------------------------------------------------------------------------------------------------------
+caseid          int     %8.0g                 CaseID
+weight_pop      float   %9.0g                 
+b3              byte    %8.0g                 B3
+nd2             byte    %8.0g                 ND2
+b7_a            byte    %8.0g                 B7_a
+gh1             byte    %8.0g                 GH1
+ppeducat        byte    %8.0g                 
+race_5cat       byte    %8.0g                 
+----------------------------------------------------------------------------------------------------------------------------------------
+Sorted by: 
+     Note: Dataset has changed since last saved.
+
+. 
+. di "Number of observations: " _N
+Number of observations: 11667
+
+. di "Number of variables: " r(k)
+Number of variables: 8
+
+. 
+. /* For all 8 variables, codebook says none of them has missing value, 
+so we should have 11667, total observations.*/
+. * Create a new binary variable
+. gen b3_b = .
+(11,667 missing values generated)
+
+. replace b3_b = 0 if b3 <= 2
+(4,296 real changes made)
+
+. replace b3_b = 1 if b3 >= 3
+(7,371 real changes made)
+
+. 
+. *Label the new binary variable
+. label define b3_b_label 1 "Same/Better" 0 "Worse off"
+
+. label values b3_b b3_b_label
+
+. 
+. svyset caseid [pw=weight_pop]
+
+Sampling weights: weight_pop
+             VCE: linearized
+     Single unit: missing
+        Strata 1: <one>
+ Sampling unit 1: caseid
+           FPC 1: <zero>
+
+. svy: logistic b3_b i.nd2 i.b7_a i.gh1 i.ppeducat i.race_5cat
+(running logistic on estimation sample)
+
+Survey: Logistic regression
+
+Number of strata =      1                        Number of obs   =      11,667
+Number of PSUs   = 11,667                        Population size = 255,114,223
+                                                 Design df       =      11,666
+                                                 F(17, 11650)    =       55.16
+                                                 Prob > F        =      0.0000
+
+------------------------------------------------------------------------------
+             |             Linearized
+        b3_b | Odds ratio   std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         nd2 |
+          2  |   1.053011   .0969572     0.56   0.575     .8791228    1.261294
+          3  |   .9832436   .0841096    -0.20   0.843      .831456    1.162741
+          4  |   1.270674   .2532041     1.20   0.229     .8598042    1.877883
+          5  |   1.253162    .209535     1.35   0.177     .9029573     1.73919
+             |
+        b7_a |
+          2  |   2.252987   .1352537    13.53   0.000     2.002872    2.534336
+          3  |   5.851277   .3975065    26.01   0.000     5.121749    6.684717
+          4  |   13.54044   2.683335    13.15   0.000      9.18187      19.968
+             |
+         gh1 |
+          2  |   .9702475   .0547151    -0.54   0.592      .868712    1.083651
+          3  |   1.121174   .0661211     1.94   0.052     .9987764    1.258571
+          4  |   1.444085   .1411883     3.76   0.000     1.192235    1.749135
+             |
+    ppeducat |
+          2  |   .9803704   .0999426    -0.19   0.846     .8027985     1.19722
+          3  |   1.013306     .10017     0.13   0.894     .8348083     1.22997
+          4  |   1.076589   .1059802     0.75   0.453     .8876637    1.305725
+             |
+   race_5cat |
+          2  |   2.352759   .1901596    10.59   0.000     2.008042    2.756654
+          3  |    1.30298   .0921066     3.74   0.000     1.134385    1.496631
+          4  |   1.730852   .2151733     4.41   0.000     1.356534    2.208458
+          5  |   1.007829   .1690747     0.05   0.963     .7253934    1.400233
+             |
+       _cons |   .5469292    .072147    -4.57   0.000     .4223136    .7083161
+------------------------------------------------------------------------------
+Note: _cons estimates baseline odds.
+
+. 
+. /* From the result, all categories of nd2 "thinking that the chance of
+experiencing a natural disaster or severe weather event will be higher, lower or
+about the same in 5 years" don't have siginicant relationship to family finance.
+However, all categories of b7_a, (economic condition), category 4 of gh1, (whether
+they own the house) and categories 2,3,4 of race_5cat, (race) have siginificant
+relationship with family finance. In particular, as one rates his/her economic
+conditon better, the higher chance he/she will think the family are worse off*/
+. 
+. save "C:/Users/Yukun/Downloads/ps4.dta"
+file C:/Users/Yukun/Downloads/ps4.dta saved
+
+. 
+end of do-file
+```
+
+```{r}
+library(haven)
+
+dat <- read_dta("C:/Users/Yukun/Downloads/ps4.dta")
+
+head(dat)
+
+library(survey)
+design <- svydesign(id = ~caseid, weights = ~weight_pop, data = dat)
+model <- svyglm(b3_b ~ nd2+ b7_a+ gh1+ ppeducat+ race_5cat, design=design, famil
+                =binomial(link="logit"))
+
+
+null_model <- svyglm(b3_b ~ 1, design=design,family
+                     =binomial(link="logit"))
+
+pseudo_R2 <- 1 - (deviance(model) / deviance(null_model))
+print(pseudo_R2)
+
+```
