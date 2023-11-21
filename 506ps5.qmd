@@ -1,0 +1,180 @@
+---
+title: "506ps5"
+author: "Yukun Yang"
+format:
+  html:
+    smooth-scroll: true
+editor: visual
+---
+
+https://github.com/yyk2505942897/506.git
+
+## 1
+
+### (a)
+
+```{r}
+library(ggplot2)
+nnmaps <- read.csv("C:/Users/Yukun/Downloads/chicago-nmmaps.csv")
+```
+
+```{r}
+nnmaps$temp_celsius <- (nnmaps$temp - 32) * 5 / 9
+monthly_avg_temp <- aggregate(temp_celsius ~ month_numeric + month + season, data=nnmaps, mean)
+ggplot(monthly_avg_temp, aes(x=month_numeric, y=temp_celsius, color=season, group=season)) +
+  geom_point() +
+  geom_line() +
+  scale_x_continuous(breaks=1:12, labels=monthly_avg_temp$month, limits=c(1, 12)) +
+  scale_color_manual(values=c("green", "orange", "blue", "red")) +
+  labs(title='Mean Monthly Temperature in Celsius',
+       x='Month',
+       y='Average Temperature (°C)',
+       color='Season') +
+  theme_minimal() +
+  theme(axis.text.x=element_text(angle=45, hjust=1))
+
+```
+
+### (b)
+
+pm10 seems to have the least seasonal trend.
+
+```{r}
+library(reshape2)
+monthly_avg <- aggregate(cbind(temp_celsius, o3, pm10, dewpoint) ~ 
+                           month_numeric + month, data=nnmaps, mean)
+monthly_avg_melt <- melt(monthly_avg, id.vars = c("month_numeric", "month"), 
+                         measure.vars = c("temp_celsius", "o3", "pm10", "dewpoint"))
+ggplot(monthly_avg_melt, aes(x=month_numeric, y=value, group=variable, color=variable)) +
+  geom_line() +
+  scale_x_continuous(breaks=1:12, labels=monthly_avg$month, limits=c(1, 12)) +
+  labs(title='Mean Monthly Values of Temperature, Ozone, PM10, and Dewpoint',
+       x='Month',
+       y='Mean Value',
+       color='Variable') +
+  theme_minimal() +
+  theme(axis.text.x=element_text(angle=45, hjust=1))
+
+```
+
+## 2
+
+```{r}
+setClass("poly", 
+         slots = c(terms = "numeric"),
+         prototype = list(terms = numeric(0))
+)
+
+make_poly <- function(terms) {
+    new("poly", terms = terms)
+}
+setValidity("poly", function(object) {
+    if (!is.numeric(object@terms)) {
+        return("terms must be numeric")
+    }
+    TRUE
+})
+setMethod("show", "poly", function(object) {
+    terms <- object@terms
+    terms_str <- sapply(names(terms), function(power) {
+        coef <- terms[power]
+        if (coef == 0) return(NULL)
+        paste0(coef, "x^", power)
+    })
+    cat(paste(terms_str, collapse = " + "), "\n")
+})
+setMethod("+", signature("poly", "poly"), function(e1, e2) {
+    new_terms <- e1@terms + e2@terms
+    new_terms[is.na(new_terms)] <- 0
+    make_poly(new_terms)
+})
+
+setMethod("-", signature("poly", "poly"), function(e1, e2) {
+    new_terms <- e1@terms - e2@terms
+    new_terms[is.na(new_terms)] <- 0
+    make_poly(new_terms)
+})
+
+p1 <- make_poly(c(`2` = 3, `0` = 2))  # 3x^2 + 2
+p2 <- make_poly(c(`3` = 7, `2` = -2, `1` = -1, `0` = 17))  # 7x^3 - 2x^2 - x + 17
+p1
+p2
+p1 + p2
+p1 - p2
+```
+
+## 3
+
+### a
+
+```{r}
+library(nycflights13)
+library(data.table)
+library(tidyverse)
+flights
+```
+
+```{r}
+flights_dt <- as.data.table(flights)
+
+# Calculate mean and median departure delay per origin airport
+departure_delays <- flights_dt[, .(
+                              mean_dep_delay = mean(dep_delay, na.rm = TRUE),
+                              median_dep_delay = median(dep_delay, na.rm = TRUE)),
+                              by = .(origin)
+                          ][order(-mean_dep_delay)]
+
+# calculate the number of flights for each origin
+counts_origin <- flights_dt[, .N, by = .(origin)]
+
+# Filter out airports with less than 10 flights
+valid_origins <- counts_origin[N >= 10, origin]
+
+# Now filter departure_delays using valid_origins
+departure_delays_filtered <- departure_delays[origin %in% valid_origins]
+
+# joining with airports and select columns
+departure_delays_joined <- departure_delays_filtered %>%
+                            left_join(airports, by = c("origin" = "faa")) %>%
+                            select(name, mean_dep_delay, median_dep_delay)
+
+print(departure_delays_joined)
+
+# Calculate mean and median arrival delay per destination airport
+arrival_delays <- flights_dt[, .(
+                            mean_arr_delay = mean(arr_delay, na.rm = TRUE),
+                            median_arr_delay = median(arr_delay, na.rm = TRUE)),
+                            by = .(dest)
+                        ][order(-mean_arr_delay)]
+counts_dest <- flights_dt[, .N, by = .(dest)]
+valid_dests <- counts_dest[N >= 10, dest]
+
+arrival_delays_filtered <- arrival_delays[dest %in% valid_dests]
+
+# join with airports and selecting columns
+arrival_delays_joined <- arrival_delays_filtered %>%
+                          left_join(airports, by = c("dest" = "faa")) %>%
+                          select(name, mean_arr_delay, median_arr_delay)
+
+print(arrival_delays_joined)
+```
+
+### b
+
+```{r}
+# Calculate average speed (distance / air_time in hours) and join with planes data
+flights_with_speed <- flights %>%
+  mutate(average_speed_mph = distance / (air_time / 60)) %>%
+  left_join(planes, by = "tailnum")
+
+fastest_model <- flights_with_speed%>%
+  group_by(model) %>%
+  summarize(average_speed = mean(average_speed_mph, na.rm = TRUE),
+            num_flights = n()) %>%
+  arrange(desc(average_speed)) %>%
+  slice(1) %>%
+  select(model, average_speed, num_flights)
+
+print(fastest_model)
+
+```
