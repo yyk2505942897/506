@@ -1,0 +1,98 @@
+---
+title: "506ps6"
+author: "Yukun Yang"
+format: pdf
+editor: visual
+---
+
+## 1
+
+https://github.com/yyk2505942897/506.git
+
+```{r}
+library(nycflights13)
+library(dplyr)
+library(purrr)
+library(tidyr)
+library(boot)
+library(parallel)
+library(furrr)
+library(future)
+
+n <- 1000
+data("flights")
+flights <- flights %>% filter(!is.na(air_time))
+```
+
+```{r}
+#without parallel
+bootstrap_sample <- function(data) {
+  sampled_data <- data %>% 
+    group_by(origin) %>% 
+    sample_n(size = n(), replace = TRUE) %>%
+    ungroup()
+
+  sampled_means <- sampled_data %>% 
+    group_by(origin) %>% 
+    summarize(mean_air_time = mean(air_time, na.rm = TRUE)) %>%
+    pull(mean_air_time)
+  return(sampled_means)
+}
+
+stratified_bootstrap <- function(data, n_bootstrap) {
+  results <- replicate(n_bootstrap, bootstrap_sample(data), simplify = FALSE)
+  return(do.call(rbind, results))
+}
+
+bootstrap_results <- stratified_bootstrap(flights, n)
+bootstrap_results_reshaped <- matrix(unlist(bootstrap_results), 
+                                     ncol = 3, byrow = TRUE)
+
+standard_errors <- apply(bootstrap_results_reshaped, 2, sd)
+
+results_table <- data.frame(
+  origin = unique(flights$origin),
+  mean_air_time = colMeans(bootstrap_results_reshaped),
+  standard_error = standard_errors
+)
+
+print(results_table)
+
+```
+
+```{r}
+#parallel
+bootstrap_sample <- function(data) {
+  sampled_data <- data %>% 
+    group_by(origin) %>% 
+    sample_n(size = n(), replace = TRUE) %>%
+    ungroup()
+
+  sampled_means <- sampled_data %>% 
+    group_by(origin) %>% 
+    summarize(mean_air_time = mean(air_time, na.rm = TRUE))
+
+  return(sampled_means$mean_air_time)
+}
+
+parallel_bootstrap_means <- function(data, n_bootstrap) {
+  results <- future_map(1:n_bootstrap, ~bootstrap_sample(data), 
+                        .options = furrr_options(seed = TRUE))
+  do.call(rbind, results)
+}
+
+plan(multisession, workers = detectCores() - 1)
+bootstrap_results <- parallel_bootstrap_means(flights, n)
+
+bootstrap_results_reshaped <- matrix(bootstrap_results, ncol = 3, byrow = TRUE)
+standard_errors <- apply(bootstrap_results_reshaped, 2, sd)
+
+results_table <- data.frame(
+  origin = unique(flights$origin),
+  mean_air_time = colMeans(bootstrap_results_reshaped),
+  standard_error = standard_errors
+)
+
+print(results_table)
+
+```
