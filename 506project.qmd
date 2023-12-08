@@ -1,0 +1,150 @@
+---
+title: "506project"
+author: "Yukun Yang"
+format: pdf
+editor: visual
+---
+
+https://github.com/yyk2505942897/506.git
+
+```{r}
+library(dplyr)
+library(tidyr)
+
+library(readr)
+# Read the CBECS 2018 data file
+data <- read.csv("C:/Users/Yukun/Downloads/cbecs2018_final_public-1.csv")
+cbecs_data<-data
+
+```
+
+```{r}
+electricity_use_labels <- c(
+  ELCLBTU = "Cooling",
+  ELVNBTU = "Ventilation",
+  ELWTBTU = "Water Heating",
+  ELLTBTU = "Lighting",
+  ELCKBTU = "Cooking",
+  ELRFBTU = "Refrigeration",
+  ELOFBTU = "Office Equipment",
+  ELPCBTU = "Computing",
+  ELOTBTU = "Miscellaneous"
+)
+
+# Key variables list
+key_variables <- c("EMCS", "EMCSHT","EMCSLT","EMCSCL","ELCLBTU", "ELVNBTU", 
+                   "ELWTBTU", "ELLTBTU", 
+                   "ELCKBTU", "ELRFBTU", "ELOFBTU", "ELPCBTU", "ELOTBTU", 
+                   "ELBTU", "ELUSED", "HT1", "HT2", "COOL", "WATR", "COOK", 
+                   "MANU", "SQFT", "WKHRS","BLDSHP","BASEMNT","ATTIC","RENOV",
+                   "YRCONC","NFLOOR","FLCEILHT","WLCNS","RFCNS","SKYLT","NWKER","SCHED")
+
+# Selecting the subset with only the key variables
+cbecs_subset <- cbecs_data[, key_variables]
+
+# Cleaning NA values
+cbecs_cleaned <- na.omit(cbecs_subset)
+
+# View the first few rows of the cleaned dataset
+head(cbecs_cleaned)
+```
+
+```{r}
+cbecs_cleaned_sqft <- cbecs_cleaned %>%
+  mutate(Size_Category = case_when(
+    SQFT < 5000 ~ "Small",
+    SQFT >= 5000 & SQFT <= 20000 ~ "Medium",
+    SQFT > 20000 ~ "Large"
+  ))
+
+# Log-transforming the electricity consumption variables and adding BAS presence
+cbecs_transformed <- cbecs_cleaned_sqft %>%
+  mutate(across(c(ELCLBTU, ELVNBTU, ELWTBTU, ELLTBTU, ELCKBTU, ELRFBTU, ELOFBTU, ELPCBTU, ELOTBTU), log)) %>%
+  mutate(BAS_Presence = ifelse(EMCSHT == 1, "With BAS", "Without BAS"))
+
+cbecs_long <- pivot_longer(
+  cbecs_transformed,
+  cols = c(ELCLBTU, ELVNBTU, ELWTBTU, ELLTBTU, ELCKBTU, ELRFBTU, ELOFBTU, ELPCBTU, ELOTBTU),
+  names_to = "Electricity_Use_Type",
+  values_to = "Log_Consumption"
+)
+ggplot(cbecs_long, aes(x = Electricity_Use_Type, y = Log_Consumption, fill = BAS_Presence)) +
+  geom_bar(stat = "summary", fun = "mean", position = position_dodge(width = 0.9)) +
+  facet_wrap(~ Size_Category) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_x_discrete(labels = electricity_use_labels) + # Update the axis labels
+  labs(title = "Impact of BAS Control on heating and Electricity Consumption by Building Size",
+       x = "Type of Electricity Use",  # x-axis title
+       y = "Mean Log of Consumption (thous Btu)",
+       fill = "BAS Presence")
+
+
+```
+
+```{r}
+cbecs_transformed <- cbecs_cleaned_sqft %>%
+  mutate(
+    Cooling_Control = ifelse(EMCSCL == 1, "With BAS Control", "Without BAS Control"),
+    Lighting_Control = ifelse(EMCSLT == 1, "With BAS Control", "Without BAS Control")
+  ) %>%
+  mutate(across(c(ELCLBTU, ELVNBTU, ELWTBTU, ELLTBTU, ELCKBTU, ELRFBTU, ELOFBTU, ELPCBTU, ELOTBTU), log))
+
+cbecs_long_cooling <- pivot_longer(
+  cbecs_transformed,
+  cols = c(ELCLBTU, ELVNBTU, ELWTBTU, ELLTBTU, ELCKBTU, ELRFBTU, ELOFBTU, ELPCBTU, ELOTBTU),
+  names_to = "Electricity_Use_Type",
+  values_to = "Log_Consumption"
+)
+
+# Generate the bar plot for BAS control of cooling
+ggplot(cbecs_long_cooling, aes(x = Electricity_Use_Type, y = Log_Consumption, fill = Cooling_Control)) +
+  geom_bar(stat = "summary", fun = "mean", position = position_dodge(width = 0.9)) +
+  facet_wrap(~ Size_Category) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_x_discrete(labels = electricity_use_labels)+
+  labs(title = "Impact of BAS Control on Cooling and Electricity Consumption by Building Size",
+       x = "Type of Electricity Use",
+       y = "Mean Log of Consumption (thous Btu)",
+       fill = "Cooling Control")
+```
+
+```{r}
+
+cbecs_long_lighting <- pivot_longer(
+  cbecs_transformed,
+  cols = c(ELCLBTU, ELVNBTU, ELWTBTU, ELLTBTU, ELCKBTU, ELRFBTU, ELOFBTU, ELPCBTU, ELOTBTU),
+  names_to = "Electricity_Use_Type",
+  values_to = "Log_Consumption"
+)
+
+# Generate the bar plot for BAS control of lighting
+ggplot(cbecs_long_lighting, aes(x = Electricity_Use_Type, y = Log_Consumption, fill = Lighting_Control)) +
+  geom_bar(stat = "summary", fun = "mean", position = position_dodge(width = 0.9)) +
+  facet_wrap(~ Size_Category) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_x_discrete(labels = electricity_use_labels)+
+  labs(title = "Impact of BAS Control on Lighting and Electricity Consumption by Building Size",
+       x = "Type of Electricity Use",
+       y = "Mean Log of Consumption (thous Btu)",
+       fill = "Lighting Control")
+```
+
+```{r}
+full_model <- lm(log(ELBTU) ~  EMCSHT + EMCSCL + EMCSLT + SQFT + WKHRS + 
+                 BLDSHP  + ATTIC + RENOV + YRCONC + NFLOOR  + 
+                 WLCNS + RFCNS + SKYLT + NWKER + SCHED, 
+                 data = cbecs_cleaned)
+summary(full_model)
+
+
+model_glm <- glm(ELBTU ~ EMCSHT + EMCSCL + EMCSLT + SQFT + WKHRS + 
+                 BLDSHP + ATTIC + RENOV + YRCONC + NFLOOR + WLCNS + RFCNS + 
+                 SKYLT  + NWKER + SCHED, 
+                 family = poisson(link = "log"), data = cbecs_cleaned)
+
+summary(model_glm)
+
+```
+
+```{r}
+```
